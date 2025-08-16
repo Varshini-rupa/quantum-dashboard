@@ -574,31 +574,53 @@
         }
 
         function updateStats(jobs) {
+            console.log('Updating stats with jobs:', jobs); // Debug log
+            
             const running = jobs.filter(job => job.status === 'running').length;
             const queued = jobs.filter(job => job.status === 'queued').length;
             const completed = jobs.filter(job => job.status === 'completed').length;
             const devices = [...new Set(jobs.map(job => job.device))].length;
 
-            // Animate numbers
-            animateValue('runningJobs', 0, running, 1000);
-            animateValue('queuedJobs', 0, queued, 1000);  
-            animateValue('completedJobs', 0, completed, 1000);
-            animateValue('activeDevices', 0, devices, 1000);
+            console.log('Stats:', { running, queued, completed, devices }); // Debug log
+
+            // Update stats immediately (no animation for now to debug)
+            document.getElementById('runningJobs').textContent = running;
+            document.getElementById('queuedJobs').textContent = queued;
+            document.getElementById('completedJobs').textContent = completed;
+            document.getElementById('activeDevices').textContent = devices;
+
+            // Add animation back after a short delay
+            setTimeout(() => {
+                animateValue('runningJobs', running, running, 500);
+                animateValue('queuedJobs', queued, queued, 500);  
+                animateValue('completedJobs', completed, completed, 500);
+                animateValue('activeDevices', devices, devices, 500);
+            }, 100);
         }
 
         function animateValue(id, start, end, duration) {
             const element = document.getElementById(id);
+            if (!element) return; // Safety check
+            
+            if (start === end) {
+                element.textContent = end;
+                return;
+            }
+            
             const range = end - start;
-            const current = start;
-            const increment = range / (duration / 16);
+            let current = start;
+            const increment = range / (duration / 50);
+            
             const timer = setInterval(() => {
-                const value = Math.floor(current + increment);
+                current += increment;
+                const value = Math.round(current);
                 element.textContent = value;
-                if (value >= end) {
+                
+                if ((increment > 0 && current >= end) || (increment < 0 && current <= end)) {
                     element.textContent = end;
                     clearInterval(timer);
                 }
-            }, 16);
+            }, 50);
         }
 
         function createJobsTable(jobs) {
