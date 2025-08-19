@@ -1,0 +1,100 @@
+# .github/workflows/deploy.yml
+
+name: Deploy Quantum Dashboard to GitHub Pages
+
+# When should this workflow run?
+on:
+  push:
+    branches: [ main, master ]  # Run when pushing to main or master branch
+  workflow_dispatch:            # Allow manual triggering from GitHub UI
+
+# Permissions needed for GitHub Pages deployment
+permissions:
+  contents: read    # Read repository contents
+  pages: write      # Write to GitHub Pages
+  id-token: write   # Write ID tokens for authentication
+
+# Concurrency settings - cancel previous runs if new one starts
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Job name: build-and-deploy
+  build-and-deploy:
+    runs-on: ubuntu-latest  # Use Ubuntu Linux virtual machine
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    # Step 1: Get the code from your repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    # Step 2: Setup Node.js (if you need it for building)
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    # Step 3: Install dependencies (if you have package.json)
+    - name: Install dependencies
+      run: |
+        if [ -f package.json ]; then
+          npm ci
+        else
+          echo "No package.json found, skipping npm install"
+        fi
+        
+    # Step 4: Replace API key placeholder with real key
+    - name: Configure API Key
+      env:
+        IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+      run: |
+        echo "Configuring API key..."
+        
+        # Replace placeholder in JavaScript files
+        find . -name "*.js" -type f -exec sed -i "s/YOUR_API_KEY_HERE/$IBM_QUANTUM_API_KEY/g" {} +
+        
+        # Replace placeholder in HTML files (if API key is in HTML)
+        find . -name "*.html" -type f -exec sed -i "s/YOUR_API_KEY_HERE/$IBM_QUANTUM_API_KEY/g" {} +
+        
+        # Replace placeholder in any other config files
+        find . -name "*.json" -type f -exec sed -i "s/YOUR_API_KEY_HERE/$IBM_QUANTUM_API_KEY/g" {} +
+        
+        echo "API key configuration complete"
+        
+    # Step 5: Build the project (if you have a build process)
+    - name: Build project
+      run: |
+        if [ -f package.json ] && [ -n "$(npm run | grep build)" ]; then
+          echo "Building project..."
+          npm run build
+          # If you have a build directory, copy it to root
+          if [ -d "dist" ]; then
+            cp -r dist/* .
+          elif [ -d "build" ]; then
+            cp -r build/* .
+          fi
+        else
+          echo "No build process found, using files as-is"
+        fi
+        
+    # Step 6: Setup GitHub Pages
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    # Step 7: Upload the website files
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        # Upload entire repository (or specify build folder)
+        path: '.'
+        
+    # Step 8: Deploy to GitHub Pages
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
